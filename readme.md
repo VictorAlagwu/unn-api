@@ -11,8 +11,8 @@ API URL: `https://unn-api.herokuapp.com/v1`
 
 #### Required parameters
 ```
-username`: The student s unnportal.unn.edu.ng username
-password`: The student s unnportal.unn.edu.ng username
+username: The student s unnportal.unn.edu.ng username
+password: The student s unnportal.unn.edu.ng password
 ```
 
 #### Response format
@@ -42,7 +42,7 @@ Successful request (note the capitalization):
 Unsuccessful request:
 ```
 {
-  "status": "ok",
+  "status": "failed",
   "message": "error_message"
 }
 ```
@@ -53,7 +53,7 @@ Possible values of `error_message`:
 - `missing password`
 
 ## Bugs or security vulnerabilities
-If you discover any bugs or security vulnerabilities, please contact me at shalvah.adebayo@gmail.com or open an issue.
+If you discover any bugs or security vulnerabilities, please open an issue.
 
 ## Packages
 If you are building a PHP app, you could use [this package](https://github.com/shalvah/unnportal-php), which gives you your results directly. Saves you the hassle o cURL or Guzzle.
