@@ -18,7 +18,7 @@ password`: The student s unnportal.unn.edu.ng username
 #### Response format
 
 Successful request (note the capitalization):
-````
+```
 {
   "status": "ok",
   "message": "success",
