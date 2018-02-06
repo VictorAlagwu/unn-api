@@ -1,4 +1,5 @@
 /.phpintel
+/public/cookie.txt
 /vendor
 /.idea
 Homestead.json

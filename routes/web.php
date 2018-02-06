@@ -15,4 +15,4 @@ $app->get('/', function () use ($app) {
     return $app->version();
 });
 
-$app->post('/v1/students', 'ApiController@getStudentDetails');
+$app->post('/students/authenticate', 'ApiController@getStudentDetails');
