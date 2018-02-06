@@ -18,13 +18,13 @@ class ApiController extends Controller
     public function getStudentDetails(Request $request)
     {
         if (!($request->has("username"))) {
-            return json_encode(array("status" => "failed",
-                "message" => "missing username"));
+            $response = array("status" => "fail", "message" => "missing username");
+            return response()->json($response, 400);
         }
 
         if (!($request->has("password"))) {
-            return json_encode(array("status" => "failed",
-                "message" => "missing password"));
+            $response = array("status" => "fail", "message" => "missing password");
+            return response()->json($response, 400);
         }
 
         $username = $request->input("username");
@@ -36,7 +36,7 @@ class ApiController extends Controller
                     "message" => "success");
                 $response["student"] = $this->extractDetails($result);
 
-        return json_encode($response);
+        return response()->json($response);
     }
 
     public function login($username, $password)

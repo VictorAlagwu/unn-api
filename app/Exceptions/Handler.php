@@ -49,7 +49,7 @@ class Handler extends ExceptionHandler
         if($e instanceof FatalThrowableError){
             $response = array("status" => "failed",
                 "message" => "authentication failed: incorrect username or password");
-            return response(json_encode($response));
+            return response()->json($response,400);
         }
         return parent::render($request, $e);
     }
