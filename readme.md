@@ -2,30 +2,27 @@
 <br><h1 align="center">The UNN API</h1></p>
  
  <p align="center">An unofficial API for the <a href="http://unnportal.unn.edu.ng">University of Nigeria student portal</a></p>
+ 
+## Why use this?
+Supposing you're building an app (for instance, a voting app), and you want to restrict it to UNN students. Simply ask them to login with their UNN Portal details, and pass them to this API to verify their identity. (Please do not store those credentials :pray:).
 
-## Endpoints
+## How to Use
 
-API URL: `https://unn-api.herokuapp.com/v1`
+There's only one endpoint: `https://unn-api.herokuapp.com/students/auth`
 
-### POST `/students`: authenticate or obtain a student's details
+Make a POST request with the following parameters (form-data or application/json content types acceptable)
 
-#### Required parameters
-```
-username: The student s unnportal.unn.edu.ng username
-password: The student s unnportal.unn.edu.ng password
-```
+- username: The student s unnportal.unn.edu.ng username. Example: 2013/123456
+- password: The student s unnportal.unn.edu.ng password
 
-#### Response format
-
-Successful request (note the capitalization):
+If the login was successful, you should get a response like this (note the capitalization):
 ```
 {
-  "status": "ok",
-  "message": "success",
-  "student": {
+  "status": "success",
+  "data": {
       "surname": "ADEBAYO",
       "first_name": "SHALVAH",
-      "middle_name": "JOSHUA",
+      "middle_name": "",
       "sex": "Male",
       "mobile": "080xxxxxxxx",
       "email": "FIRSTNAME.LASTNAME.REGNO@UNN.EDU.NG",
@@ -38,25 +35,19 @@ Successful request (note the capitalization):
   }
 }
 ```
+For a failed login, you should get a response like this:
 
-Unsuccessful request:
-```
+```json
 {
-  "status": "failed",
-  "message": "error_message"
+    "status": "error",
+    "message": "Login failed. Please check your credentials and try again."
 }
 ```
 
-Possible values of `error_message`:
-- `authentication failed: incorrect username or password`
-- `missing username`
-- `missing password`
-
-## Bugs or security vulnerabilities
-If you discover any bugs or security vulnerabilities, please open an issue.
-
 ## Packages
-If you are building a PHP app, you could use [this package](https://github.com/shalvah/unnportal-php), which gives you your results directly. Saves you the hassle o cURL or Guzzle.
+Building a PHP app? Instead of making requests manually, you could use [this package](https://github.com/shalvah/unnportal-php). Makes working with this API a breeze!
+
+(PS. feel free to build packages for other languages, and holla at me to list them here)
 
 ## Contribution
 If you would like to help improve this API, first of all, let me say thanks! All you need to do:
