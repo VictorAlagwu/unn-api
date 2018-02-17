@@ -7,119 +7,120 @@
 
 namespace App\Services;
 
+use Goutte\Client;
+use Symfony\Component\DomCrawler\Crawler;
 
 class UnnPortalScraper
 {
 
+    /**
+     * @var Client
+     */
+    private $client;
+
+    /**
+     * @var Crawler
+     */
+    private $crawler;
+
+    public function __construct()
+    {
+        $this->client = $client = new Client();
+    }
+
     public function login($username, $password)
     {
-        $ch = curl_init();
-        $cookieFile = "cookie.txt";
-        $userAgent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36";
         $siteUrl = "http://unnportal.unn.edu.ng/";
-        $loginUrl = "http://unnportal.unn.edu.ng/landing.aspx";
-        $profileUrl = "http://unnportal.unn.edu.ng/modules/ProfileDetails/BioData.aspx";
+        $this->crawler = $this->client->request('GET', $siteUrl);
 
-        curl_setopt($ch, CURLOPT_URL, $siteUrl);
-        curl_setopt($ch, CURLOPT_COOKIESESSION, true);
-        curl_setopt($ch, CURLOPT_COOKIEJAR, $cookieFile);
-        curl_setopt($ch, CURLOPT_COOKIEFILE, $cookieFile);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        $loginPage = curl_exec($ch);
-
-        $state = $this->htmlExtractValue($loginPage, "id=\"__VIEWSTATE\"");
-        $validation = $this->htmlExtractValue($loginPage, "id=\"__EVENTVALIDATION\"");
-        $postfields = array(
-            '__EVENTVALIDATION' => $validation,
-            '__EVENTARGUMENT' => "",
-            '__EVENTTARGET' => "",
-            '__VIEWSTATE' => $state,
-            'ct100' => 'on',
+        $loginFormFields = [
+            '__EVENTVALIDATION' => $this->crawler->filter('#__EVENTVALIDATION')->attr('value'),
+            '__VIEWSTATE' => $this->crawler->filter('#__VIEWSTATE')->attr('value'),
+            '__VIEWSTATEGENERATOR' => $this->crawler->filter('#__VIEWSTATEGENERATOR')->attr('value'),
+            'RadNotification1_ClientState' => '',
+            'RadNotification1$hiddenState' => '',
+            'RadNotification1_XmlPanel_ClientState' => '',
+            'RadNotification1_TitleMenu_ClientState' => '',
             'inputUsername' => $username,
             'inputPassword' => $password,
-            'login' => 'Login');
-        curl_setopt($ch, CURLOPT_AUTOREFERER, true);
-        curl_setopt($ch, CURLOPT_HEADER, false);
-        curl_setopt($ch, CURLOPT_URL, $loginUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postfields));
-        $resultOfLogin = curl_exec($ch);
+            'login' => 'Login'
+        ];
 
-        if ($resultOfLogin == $loginPage) {
-            return false;
-        }
-
-        curl_setOpt($ch, CURLOPT_POST, FALSE);
-        curl_setopt($ch, CURLOPT_URL, $profileUrl);
-        curl_setopt($ch, CURLOPT_COOKIEFILE, $cookieFile);
-        curl_setopt($ch, CURLOPT_COOKIEJAR, $cookieFile);
-        $profilePage = curl_exec($ch);
-        curl_close($ch);
-
-
-        return $profilePage;
+        $form = $this->crawler->selectButton('Login')->form($loginFormFields);
+        $this->crawler = $this->client->submit($form);
+        return $this->loginSucceeded();
     }
 
-    function htmlExtractValue($htmlString, $value)
-    {
-        $str = stristr($htmlString, "$value value=\"");
-        $vals = explode('value="', $str);
-        return stristr($vals[1], '"', true);
-    }
 
     function extractDetails()
     {
-        $data = [];
-        $dom = new \DomDocument;
+        // visit profile page -- the home page uses iframes a lot,
+        // so we can't just click on the button
+        $this->crawler = $this->client->request('GET', 'http://unnportal.unn.edu.ng/modules/ProfileDetails/BioData.aspx');
 
-        $internalErrors = libxml_use_internal_errors(true);
-
-        $dom->loadHTML($profile);
-        $dom->preserveWhiteSpace = false;
-
-        libxml_use_internal_errors($internalErrors);
-
-        $sex = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlSex");
-        $sexValue = $this->domExtractSelectedValue($sex->getElementsByTagName('option'));
-
-        $dept = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlDepartment");
-        $deptValue = $this->domExtractSelectedValue($dept->getElementsByTagName('option'));
-
-        $entryYear = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlEntryYear");
-        $entryYearValue = $this->domExtractSelectedValue($entryYear->getElementsByTagName('option'));
-
-        $gradYear = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlGradYear");
-        $gradYearValue = $this->domExtractSelectedValue($gradYear->getElementsByTagName('option'));
-
-        $level = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlYearOfStudy");
-        $levelValue = $this->domExtractSelectedValue($level->getElementsByTagName('option'));
-
-        $data['surname'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtSurname\" type=\"text\"");
-        $data['first_name'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtFirstname\" type=\"text\"");
-        $data['middle_name'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtMiddlename\" type=\"text\"");
-        $data['sex'] = $sexValue;
-        $data['mobile'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$wmeMobileno\" type=\"text\"");
-        $data['email'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtEmail\" type=\"text\"");
-        $data['department'] = $deptValue;
-        $data['level'] = $levelValue;
-        $data['entry_year'] = $entryYearValue;
-        $data['grad_year'] = $gradYearValue;
-        $data['matric_no'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtMatricNo\" type=\"text\"");
-        $data['jamb_no'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtJAMBNo\" type=\"text\"");
-
+        $data = $this->getDropdownFields() + $this->getTextInputFields();
         return $data;
     }
 
-    function domExtractSelectedValue($nodeList)
+    /**
+     * Check if the login was successful or not
+     * Since UNN uses a JavaScript alert to inform of a failed login, we can't track that.
+     * We can only check if we're still on the login form page
+     *
+     * @return bool
+     */
+    private function loginSucceeded()
     {
-        for ($i = 0; $i < $nodeList->length; $i++) {
-            if ($nodeList->item($i)->hasAttribute('selected')
-                && $nodeList->item($i)->getAttribute('selected') === "selected"
-            ) {
-                return $nodeList->item($i)->nodeValue;
-            }
-        }
+        $stillOnLoginPage = $this->crawler->filter('#inputUsername')->count()
+            && $this->crawler->filter('#inputPassword')->count();
+        return !$stillOnLoginPage;
     }
+
+    /**
+     * Get student profile fields rendered with dropdowns
+     *
+     * @return array
+     */
+    private function getDropdownFields()
+    {
+        $data = [];
+        $fieldsUsingDropdowns = [
+            'sex' => 'ContentPlaceHolder1_ddlSex',
+            'department' => 'ContentPlaceHolder1_ddlDepartment',
+            'entry_year' => 'ContentPlaceHolder1_ddlEntryYear',
+            'grad_year' => 'ContentPlaceHolder1_ddlGradYear',
+            'level' => 'ContentPlaceHolder1_ddlYearOfStudy',
+        ];
+
+        foreach ($fieldsUsingDropdowns as $field => $formFieldId) {
+            $data[$field] = $this->crawler->filter("#$formFieldId")
+                ->filterXPath('//option[@selected="selected"]')->text();
+        }
+        return $data;
+    }
+
+    /**
+     * Get student profile fields rendered as text inputs
+     *
+     * @return array
+     */
+    private function getTextInputFields()
+    {
+        $data = [];
+        $fieldsUsingTextInput = [
+            'surname' => 'ContentPlaceHolder1_txtSurname',
+            'first_name' => 'ContentPlaceHolder1_txtFirstname',
+            'middle_name' => 'ContentPlaceHolder1_txtMiddlename',
+            'mobile' => 'ContentPlaceHolder1_wmeMobileno',
+            'email' => 'ContentPlaceHolder1_txtEmail',
+            'matric_no' => 'ContentPlaceHolder1_txtMatricNo',
+            'jamb_no' => 'ContentPlaceHolder1_txtJAMBNo',
+        ];
+
+        foreach ($fieldsUsingTextInput as $field => $formFieldId) {
+            $data[$field] = $this->crawler->filter("#$formFieldId")->attr('value');
+        }
+        return $data;
+    }
+
 }

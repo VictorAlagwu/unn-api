@@ -23,8 +23,10 @@ class ApiController extends Controller
             'password' => 'string|required'
         ]);
 
-        if (!$scraper->login(...$request->only("username", "password"))) {
-            return response()->json();
+        if (!$scraper->login(...array_values($request->only("username", "password")))) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Login failed. Please check your credentials and try again.'], 400);
         }
 
         $response = [
