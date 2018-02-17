@@ -44,6 +44,8 @@ For a failed login, you should get a response like this:
 }
 ```
 
+Note: for this API to work, it has to make 3 web requests to the UNN portal. To optimize repeat requests, the API caches student details for a period of 4 hours. This means if you are able to login successfully, subsequent API calls will load your details from cache. You can explicitly force it to re-authenticate by sending a `Cache-Control: no-cache` header
+
 ## Packages
 Building a PHP app? Instead of making requests manually, you could use [this package](https://github.com/shalvah/unnportal-php). Makes working with this API a breeze!
 

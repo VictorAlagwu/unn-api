@@ -17,7 +17,7 @@ class Cachemaster
     {
         list($username, $password) = $loginDetails;
         $key = "$username.$password";
-        Cache::put($key, $data, env('CACHE_TIMEOUT_MINUTES'));
+        Cache::put($key, $data, env('CACHE_TIMEOUT_MINUTES', 60 * 4));
     }
 
     public function getForStudent($username, $password)
