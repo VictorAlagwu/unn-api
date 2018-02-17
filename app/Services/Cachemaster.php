@@ -16,13 +16,25 @@ class Cachemaster
     public function saveForStudent($loginDetails, $data)
     {
         list($username, $password) = $loginDetails;
-        $key = "$username.$password";
+        $key = $this->getCacheKey($username, $password);
         Cache::put($key, $data, env('CACHE_TIMEOUT_MINUTES', 60 * 4));
     }
 
     public function getForStudent($username, $password)
     {
-        $key = "$username.$password";
+        $key = $this->getCacheKey($username, $password);
         return Cache::get($key);
+    }
+
+    /**
+     * Get the key for referencing this student's details in cache
+     *
+     * @param $username
+     * @param $password
+     * @return string
+     */
+    private function getCacheKey($username, $password)
+    {
+        return sha1("$username.$password");
     }
 }
