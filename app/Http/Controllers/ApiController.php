@@ -26,8 +26,8 @@ class ApiController extends Controller
 
         list($username, $password) = array_values($request->only("username", "password"));
 
-        // first try to pull from cache
-        if ($details = $cachemaster->getForStudent($username, $password)) {
+        // first try to pull from cache (except the requeter said NO)
+        if (!$request->isNoCache() && $details = $cachemaster->getForStudent($username, $password)) {
             return response()->json(['status' => 'success', 'data' => $details]);
         }
 
