@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Cachemaster;
 use App\Services\UnnPortalScraper;
 use Illuminate\Http\Request;
 
@@ -16,24 +17,32 @@ class ApiController extends Controller
         //
     }
 
-    public function getStudentDetails(Request $request, UnnPortalScraper $scraper)
+    public function getStudentDetails(Request $request, UnnPortalScraper $scraper, Cachemaster $cachemaster)
     {
         $this->validate($request, [
             'username' => 'string|required',
             'password' => 'string|required'
         ]);
 
-        if (!$scraper->login(...array_values($request->only("username", "password")))) {
+        list($username, $password) = array_values($request->only("username", "password"));
+
+        // first try to pull from cache
+        if ($details = $cachemaster->getForStudent($username, $password)) {
+            return response()->json(['status' => 'success', 'data' => $details]);
+        }
+
+        // nothing in cache? Heimdall, open the portal!!!
+        if (!$scraper->login($username, $password)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Login failed. Please check your credentials and try again.'], 400);
+                'message' => 'Login failed. Please check your credentials and try again.'
+            ], 400);
         }
 
         $response = [
             "status" => "success",
             'data' => $scraper->extractDetails()
         ];
-
         return response()->json($response);
     }
 

@@ -19,17 +19,30 @@ class UnnPortalScraper
     private $client;
 
     /**
+     * @var Cachemaster
+     */
+    private $cachemaster;
+
+    /**
      * @var Crawler
      */
     private $crawler;
 
-    public function __construct()
+    /**
+     * @var array
+     */
+    private $loginDetails = [];
+
+    public function __construct(Cachemaster $cachemaster)
     {
         $this->client = $client = new Client();
+        $this->cachemaster = $cachemaster;
     }
 
     public function login($username, $password)
     {
+        $this->loginDetails = [$username, $password];
+        
         $siteUrl = "http://unnportal.unn.edu.ng/";
         $this->crawler = $this->client->request('GET', $siteUrl);
 
@@ -50,15 +63,16 @@ class UnnPortalScraper
         $this->crawler = $this->client->submit($form);
         return $this->loginSucceeded();
     }
-
-
-    function extractDetails()
+    
+    public function extractDetails()
     {
         // visit profile page -- the home page uses iframes a lot,
         // so we can't just click on the button
         $this->crawler = $this->client->request('GET', 'http://unnportal.unn.edu.ng/modules/ProfileDetails/BioData.aspx');
-
         $data = $this->getDropdownFields() + $this->getTextInputFields();
+
+        // keep it in the cache to speed up future responses
+        $this->cachemaster->saveForStudent($this->loginDetails, $data);
         return $data;
     }
 
