@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use Exception;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -46,11 +47,22 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Exception $e)
     {
-        if($e instanceof FatalThrowableError){
-            $response = array("status" => "failed",
-                "message" => "authentication failed: incorrect username or password");
-            return response()->json($response,400);
+        if (env('APP_DEBUG') == true) {
+            $response = [
+                'status' => 'error',
+                'mesage' => $e->getMessage(),
+                'trace' => $e->getTrace(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'class' => get_class($e),
+            ];
+        } else {
+            $response = [
+                'status' => 'error',
+                'mesage' => 'Whoops, looks like something went wrong.',
+            ];
         }
-        return parent::render($request, $e);
+        return response()->json($response, 500);
+
     }
 }

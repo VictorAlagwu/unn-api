@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Cachemaster;
+use App\Services\UnnPortalScraper;
 use Illuminate\Http\Request;
 
 class ApiController extends Controller
@@ -15,140 +17,33 @@ class ApiController extends Controller
         //
     }
 
-    public function getStudentDetails(Request $request)
+    public function getStudentDetails(Request $request, UnnPortalScraper $scraper, Cachemaster $cachemaster)
     {
-        if (!($request->has("username"))) {
-            $response = array("status" => "fail", "message" => "missing username");
-            return response()->json($response, 400);
+        $this->validate($request, [
+            'username' => 'string|required',
+            'password' => 'string|required'
+        ]);
+
+        list($username, $password) = array_values($request->only("username", "password"));
+
+        // first try to pull from cache (except the requeter said NO)
+        if (!$request->isNoCache() && $details = $cachemaster->getForStudent($username, $password)) {
+            return response()->json(['status' => 'success', 'data' => $details]);
         }
 
-        if (!($request->has("password"))) {
-            $response = array("status" => "fail", "message" => "missing password");
-            return response()->json($response, 400);
+        // nothing in cache? Heimdall, open the portal!!!
+        if (!$scraper->login($username, $password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Login failed. Please check your credentials and try again.'
+            ], 400);
         }
 
-        $username = $request->input("username");
-        $password = $request->input("password");
-
-
-            $result = $this->login($username, $password);
-                $response = array("status" => "ok",
-                    "message" => "success");
-                $response["student"] = $this->extractDetails($result);
-
+        $response = [
+            "status" => "success",
+            'data' => $scraper->extractDetails()
+        ];
         return response()->json($response);
-    }
-
-    public function login($username, $password)
-    {
-        $ch = curl_init();
-        $cookieFile = "cookie.txt";
-        $userAgent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36";
-        $siteUrl = "http://unnportal.unn.edu.ng/";
-        $loginUrl = "http://unnportal.unn.edu.ng/landing.aspx";
-        $profileUrl = "http://unnportal.unn.edu.ng/modules/ProfileDetails/BioData.aspx";
-
-        curl_setopt($ch, CURLOPT_URL, $siteUrl);
-        curl_setopt($ch, CURLOPT_COOKIESESSION, true);
-        curl_setopt($ch, CURLOPT_COOKIEJAR, $cookieFile);
-        curl_setopt($ch, CURLOPT_COOKIEFILE, $cookieFile);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        $loginPage = curl_exec($ch);
-
-        $state = $this->htmlExtractValue($loginPage, "id=\"__VIEWSTATE\"");
-        $validation = $this->htmlExtractValue($loginPage, "id=\"__EVENTVALIDATION\"");
-        $postfields = array(
-            '__EVENTVALIDATION' => $validation,
-            '__EVENTARGUMENT' => "",
-            '__EVENTTARGET' => "",
-            '__VIEWSTATE' => $state,
-            'ct100' => 'on',
-            'inputUsername' => $username,
-            'inputPassword' => $password,
-            'login' => 'Login');
-        curl_setopt($ch, CURLOPT_AUTOREFERER, true);
-        curl_setopt($ch, CURLOPT_HEADER, false);
-        curl_setopt($ch, CURLOPT_URL, $loginUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postfields));
-        $resultOfLogin = curl_exec($ch);
-
-        if ($resultOfLogin == $loginPage) {
-            return false;
-        }
-
-        curl_setOpt($ch, CURLOPT_POST, FALSE);
-        curl_setopt($ch, CURLOPT_URL, $profileUrl);
-        curl_setopt($ch, CURLOPT_COOKIEFILE, $cookieFile);
-        curl_setopt($ch, CURLOPT_COOKIEJAR, $cookieFile);
-        $profilePage = curl_exec($ch);
-        curl_close($ch);
-
-
-        return $profilePage;
-    }
-
-    function htmlExtractValue($htmlString, $value)
-    {
-        $str = stristr($htmlString, "$value value=\"");
-        $vals = explode('value="', $str);
-        return stristr($vals[1], '"', true);
-    }
-
-    function extractDetails($profile)
-    {
-        $data = [];
-        $dom = new \DomDocument;
-
-        $internalErrors = libxml_use_internal_errors(true);
-
-        $dom->loadHTML($profile);
-        $dom->preserveWhiteSpace = false;
-
-        libxml_use_internal_errors($internalErrors);
-
-        $sex = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlSex");
-        $sexValue = $this->domExtractSelectedValue($sex->getElementsByTagName('option'));
-
-        $dept = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlDepartment");
-        $deptValue = $this->domExtractSelectedValue($dept->getElementsByTagName('option'));
-
-        $entryYear = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlEntryYear");
-        $entryYearValue = $this->domExtractSelectedValue($entryYear->getElementsByTagName('option'));
-
-        $gradYear = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlGradYear");
-        $gradYearValue = $this->domExtractSelectedValue($gradYear->getElementsByTagName('option'));
-
-        $level = $dom->getElementById("ctl00_ContentPlaceHolder1_ddlYearOfStudy");
-        $levelValue = $this->domExtractSelectedValue($level->getElementsByTagName('option'));
-
-        $data['surname'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtSurname\" type=\"text\"");
-        $data['first_name'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtFirstname\" type=\"text\"");
-        $data['middle_name'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtMiddlename\" type=\"text\"");
-        $data['sex'] = $sexValue;
-        $data['mobile'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$wmeMobileno\" type=\"text\"");
-        $data['email'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtEmail\" type=\"text\"");
-        $data['department'] = $deptValue;
-        $data['level'] = $levelValue;
-        $data['entry_year'] = $entryYearValue;
-        $data['grad_year'] = $gradYearValue;
-        $data['matric_no'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtMatricNo\" type=\"text\"");
-        $data['jamb_no'] = $this->htmlExtractValue($profile, "<input name=\"ctl00\$ContentPlaceHolder1\$txtJAMBNo\" type=\"text\"");
-
-        return $data;
-    }
-
-    function domExtractSelectedValue($nodeList)
-    {
-        for ($i = 0; $i < $nodeList->length; $i++) {
-            if ($nodeList->item($i)->hasAttribute('selected')
-                && $nodeList->item($i)->getAttribute('selected') === "selected"
-            ) {
-                return $nodeList->item($i)->nodeValue;
-            }
-        }
     }
 
 }
